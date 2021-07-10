@@ -11,7 +11,6 @@ from sqlalchemy.sql.elements import TextClause
 from telegram import Message, Chat, User  # noqa
 
 import subscribe_main
-import utilities
 from log.g3b1_log import cfg_logger
 # create console handler and set level to debug
 from todo_model import TodoDC
@@ -61,8 +60,8 @@ def todo_insert(todo: TodoDC) -> TodoDC:
         return i_fetch_todo(con, rowid)
 
 
-def todo_list(filter_sql: str, param_dict: dict) -> list:
-    lod = []
+def todo_list(filter_sql: str, param_dict: dict) -> dict:
+    rs_dict = dict()
     where_str: str = f"WHERE {filter_sql} "
     stmt: TextClause = text("SELECT todo.ROWID, todo.* FROM todo " + where_str)
     print(f'param_dict: {param_dict} ')
@@ -70,13 +69,15 @@ def todo_list(filter_sql: str, param_dict: dict) -> list:
     with Engine_TODO.connect() as con:
         rs = con.execute(stmt)
         print(rs)
+        count: int = 0
         for row in rs:
+            count += 1
             d = dict(row)
-            lod.append(d)
+            rs_dict.update({count: d})
             print(f'added to lod: {d}')
-    lod = subscribe_main.map_id_uname(lod, {'creat__tg_user_id': 'creat__uname',
-                                      'assig__tg_user_id': 'assig__uname'})
-    return lod
+    rs_dict = subscribe_main.map_id_uname(rs_dict, {'creat__tg_user_id': 'creat__uname',
+                                            'assig__tg_user_id': 'assig__uname'})
+    return rs_dict
 
 
 def i_fetch_todo(con: MockConnection, rowid: int) -> TodoDC:
@@ -136,10 +137,10 @@ def i_read_default_value(con: MockConnection,
 
 
 def i_set_default_value(con: MockConnection,
-                         tg_chat_id: int,
-                         tg_user_id: int,
-                         column_name: str,
-                         new_value):
+                        tg_chat_id: int,
+                        tg_user_id: int,
+                        column_name: str,
+                        new_value):
     tbl_settings: Table = MetaData_TODO.tables["user_chat_settings"]
     values = dict(
         tg_user_id=tg_user_id, tg_chat_id=tg_chat_id
@@ -195,11 +196,7 @@ def main():
     todo_list(filter_sql, param_dict)
     set_filter_default(1, 2, "all")
     filter_default = read_filter_default(1, 2)
-    lod = todo_list(filters()[filter_default], dict(tg_chat_id=1, closed=0))
-    dic = utilities.lod_to_dic(lod)
-    tbl_def: utilities.TableDef = utilities.TableDef(['rowid', 'title', 'creat__tg_user_id', 'assig__tg_user_id', 'creat__uname'])
-    tbl = utilities.dc_dic_to_table(dic, tbl_def)
-    print(utilities.table_print(tbl))
+    todo_list(filters()[filter_default], dict(tg_chat_id=1, closed=0))
 
 
 if __name__ == '__main__':
