@@ -22,7 +22,7 @@ from utilities import TgCommand, TgColumn
 logger = cfg_logger(logging.getLogger(__name__), logging.DEBUG)
 
 # The token you got from @botfather when you created the bot
-BOT_TOKEN_TODO = " "
+# BOT_TOKEN_TODO = " "
 
 COLUMNS_TODO = dict(
     position=
@@ -120,7 +120,7 @@ def hdl_cmd_del(update: Update, context: CallbackContext) -> None:
 def hdl_cmd_default(update: Update, context: CallbackContext) -> None:
     """Display the current todo"""
     todo_dc = todo_db.read_default(update.effective_chat.id, update.effective_user.id)
-    list_def_1 = [todo_dc]
+    list_def_1 = {1: todo_dc.as_dict_ext()}
     i_send_list(update, list_def_1)
 
 
@@ -250,8 +250,8 @@ def hdl_cmd_list(update: Update, context: CallbackContext) -> None:
 def hdl_cmd_pick(update: Update, context: CallbackContext) -> None:
     """Pick a todo by it's position in the list of user's default list filter"""
     list_default = i_list_default(update, context)
-    li_idx = int(context.args[0]) - 1
-    row: dict = list_default[li_idx]
+    li_pos = int(context.args[0])
+    row: dict = list_default[li_pos]
     i_set_default(update, int(row['rowid']), update.effective_chat.id, update.effective_user.id)
 
 
@@ -274,7 +274,7 @@ def hdl_cmd_idpick(update: Update, context: CallbackContext) -> None:
 
 def main() -> None:
     """Run the bot."""
-    tgdata_main.start_bot(BOT_TOKEN_TODO, commands(), start, hdl_message)
+    tgdata_main.start_bot(__file__, commands(), start, hdl_message)
 
 
 if __name__ == '__main__':

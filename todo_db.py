@@ -64,17 +64,17 @@ def todo_list(filter_sql: str, param_dict: dict) -> dict:
     rs_dict = dict()
     where_str: str = f"WHERE {filter_sql} "
     stmt: TextClause = text("SELECT todo.ROWID, todo.* FROM todo " + where_str)
-    print(f'param_dict: {param_dict} ')
+    #  print(f'param_dict: {param_dict} ')
     stmt = stmt.bindparams(**param_dict)
     with Engine_TODO.connect() as con:
         rs = con.execute(stmt)
-        print(rs)
+        # print(rs)
         count: int = 0
         for row in rs:
             count += 1
             d = dict(row)
             rs_dict.update({count: d})
-            print(f'added to lod: {d}')
+            #  print(f'added to lod: {d}')
     rs_dict = subscribe_main.map_id_uname(rs_dict, {'creat__tg_user_id': 'creat__uname',
                                             'assig__tg_user_id': 'assig__uname'})
     return rs_dict
@@ -98,7 +98,7 @@ def todo_update(todo: TodoDC) -> TodoDC:
             dialect=sqlite.dialect(), compile_kwargs={"literal_binds": True}
         ).string
         stmt_str = stmt_str + r' WHERE ROWID=:rowid'
-        print(stmt_str)
+        # print(stmt_str)
         logger.debug(stmt_str)
         con.execute(stmt_str, rowid=todo.rowid)  # update
 
@@ -131,7 +131,8 @@ def i_read_default_value(con: MockConnection,
     # logger.debug(select_stmt)
     select_stmt = select_stmt. \
         where(tbl_settings.c.tg_chat_id == tg_chat_id, tbl_settings.c.tg_user_id == tg_user_id)
-    logger.debug(f'SELECT: {select_stmt}')
+    # logger.debug(f'SELECT: {select_stmt}')
+    logger.debug(f'Reading default for user-chat {column.key}')
     result = con.execute(select_stmt)
     return result.fetchone()
 
