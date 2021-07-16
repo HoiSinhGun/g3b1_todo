@@ -4,6 +4,7 @@
 
 """This is a very simple example on how one could implement a custom error handler."""
 import logging
+from typing import Any
 
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -17,7 +18,7 @@ import todo_db
 import utilities
 from log.g3b1_log import cfg_logger
 from todo_model import TodoDC
-from utilities import TgCommand, TgColumn
+from utilities import G3Command, TgColumn
 
 logger = cfg_logger(logging.getLogger(__name__), logging.DEBUG)
 
@@ -40,60 +41,10 @@ COLUMNS_TODO = dict(
 )
 
 
-def commands() -> dict:
-    return dict(
-        todo_default=
-        TgCommand("default", "todo_default",
-                  hdl_cmd_default, hdl_cmd_default.__doc__, ['']),
-        todo_create=
-        TgCommand("create", "todo_create",
-                  hdl_cmd_create, hdl_cmd_create.__doc__, ['title']),
-        todo_title=
-        TgCommand("title", "todo_title",
-                  hdl_cmd_title, hdl_cmd_title.__doc__, ['title']),
-        todo_assign=
-        TgCommand("assign", "todo_assign",
-                  hdl_cmd_assign, hdl_cmd_assign.__doc__, ['assignee_un']),
-        todo_del=
-        TgCommand("del", "todo_del",
-                  hdl_cmd_del, hdl_cmd_del.__doc__, ['bot', '!', 'todo_id']),
-        todo_close=
-        TgCommand("close", "todo_close",
-                  hdl_cmd_close, hdl_cmd_close.__doc__, []),
-        todo_filter=
-        TgCommand("filter", "todo_filter",
-                  hdl_cmd_filter, hdl_cmd_filter.__doc__, ['filter']),
-        todo_list=
-        TgCommand("list", "todo_list",
-                  hdl_cmd_list, hdl_cmd_list.__doc__, []),
-        todo_pick=
-        TgCommand("pick", "todo_pick",
-                  hdl_cmd_pick, hdl_cmd_pick.__doc__, ['number']),
-        todo_idpick=
-        TgCommand("idpick", "todo_idpick",
-                  hdl_cmd_idpick, hdl_cmd_idpick.__doc__, ['rowid'])
-    )
-
-
-def start(update: Update, context: CallbackContext) -> None:
-    """Displays info."""
-    commands_str = utilities.build_commands_str(commands())
-    update.effective_message.reply_html(
-        commands_str +
-        utilities.build_debug_str(update)
-    )
-
-
-def hdl_message(update: Update, context: CallbackContext) -> None:
-    """store message to DB"""
-    message = update.message
-    logger.debug(f"Handle message {message}")
-    tg_db.synchronize_from_message(message)
-
-
-def hdl_cmd_create(update: Update, context: CallbackContext) -> None:
-    """Create a new todo"""
-    title = " ".join(context.args)
+@tgdata_main.handler()
+def hdl_cmd_create(update: Update, ctx: CallbackContext, title: str) -> None:
+    """Create a new todo
+    """
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
     todo = TodoDC(title=title, tg_chat_id=chat_id,
@@ -103,28 +54,33 @@ def hdl_cmd_create(update: Update, context: CallbackContext) -> None:
     tg_reply.command_successful(update)
 
 
-def hdl_cmd_title(update: Update, context: CallbackContext) -> None:
-    """Set the title of default todo"""
-    title = " ".join(context.args)
+@tgdata_main.handler()
+def hdl_cmd_title(update: Update, ctx: CallbackContext, title: str) -> None:
+    """Set the title of default todo
+    """
     todo_dc = todo_db.read_default(update.effective_chat.id, update.effective_user.id)
     todo_dc.title = title
     todo_db.todo_update(todo_dc)
     tg_reply.command_successful(update)
+    li_dict_1 = {1: todo_dc.as_dict_ext()}
+    i_send_list(update, li_dict_1)
 
 
-def hdl_cmd_del(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_del(update: Update, ctx: CallbackContext) -> None:
     """Not implemented yet! Stay tuned!"""
     update.effective_message.reply_html(hdl_cmd_del.__doc__)
 
 
-def hdl_cmd_default(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_default(update: Update, ctx: CallbackContext) -> None:
     """Display the current todo"""
     todo_dc = todo_db.read_default(update.effective_chat.id, update.effective_user.id)
     list_def_1 = {1: todo_dc.as_dict_ext()}
     i_send_list(update, list_def_1)
 
 
-def todo_default_r_err(update: Update) -> TodoDC:
+def i_todo_default_r_err(update: Update) -> TodoDC:
     todo = todo_db.read_default(update.effective_chat.id, update.effective_user.id)
     if not todo:
         update.effective_message.reply_html(
@@ -133,7 +89,7 @@ def todo_default_r_err(update: Update) -> TodoDC:
     return todo
 
 
-def filter_default_r_err(update: Update) -> (str, str):
+def i_filter_default_r_err(update: Update) -> (str, str):
     filter_key = todo_db.read_filter_default(update.effective_chat.id, update.effective_user.id)
     if not filter_key:
         update.effective_message.reply_html(
@@ -144,16 +100,16 @@ def filter_default_r_err(update: Update) -> (str, str):
     return filter_key, todo_db.filters()[filter_key]
 
 
-def hdl_cmd_assign(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_assign(update: Update, ctx: CallbackContext, uname: str = None) -> None:
     """Assign an user to do it"""
-    uname = context.args[0]
     assignee_user_id = subscribe_db.id_by_uname(uname)
     if not assignee_user_id:
         update.effective_message.reply_html(
             f'Assignee by uname={uname} not found!'
         )
         return
-    todo: TodoDC = todo_default_r_err(update)
+    todo: TodoDC = i_todo_default_r_err(update)
     if not todo:
         return
     todo.assig__tg_user_id = assignee_user_id
@@ -161,9 +117,10 @@ def hdl_cmd_assign(update: Update, context: CallbackContext) -> None:
     tg_reply.command_successful(update=update)
 
 
-def hdl_cmd_close(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_close(update: Update, ctx: CallbackContext) -> None:
     """Close a todo"""
-    todo: TodoDC = todo_default_r_err(update)
+    todo: TodoDC = i_todo_default_r_err(update)
     if not todo:
         return
     if not todo.closed:
@@ -174,14 +131,14 @@ def hdl_cmd_close(update: Update, context: CallbackContext) -> None:
     tg_reply.command_successful(update=update)
 
 
-def hdl_cmd_filter(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_filter(update: Update, ctx: CallbackContext, todo_filter: str = None) -> None:
     """Set the default filter for the user and chat."""
     """Examples (always excludes closed ones): 
     me = tg_user_id, sender of the command
     me_assignee, me_creator, me_stake (creator or assignee or...), 
     all"""
     tg_user_id = update.effective_user.id
-    todo_filter = context.args[0]
     filter_sql: str = todo_db.filters()[todo_filter]
     if not filter_sql:
         update.effective_message.reply_html(
@@ -192,8 +149,8 @@ def hdl_cmd_filter(update: Update, context: CallbackContext) -> None:
     tg_reply.command_successful(update)
 
 
-def i_list_default(update: Update, context: CallbackContext) -> dict:
-    filter_key, filter_sql = filter_default_r_err(update)
+def i_list_default(update: Update, ctx: CallbackContext) -> dict:
+    filter_key, filter_sql = i_filter_default_r_err(update)
     tg_user_id = update.effective_user.id
     tg_chat_id = update.effective_chat.id
     if not filter_key:
@@ -231,14 +188,15 @@ def i_send_list(update: Update, li_def_dict: dict):
         tg_reply.no_data(update)
         return
     if len(reply_str) > 3753:
-        reply_str = 'More than 3753 characters. Data will be cut!\n'
+        reply_str = f'More than 3753 characters. Data will be cut!\n\n{reply_str}'
     reply_str = "<code>\n" + reply_str[:3753] + "\n</code>"
     update.effective_message.reply_html(reply_str)
 
 
-def hdl_cmd_list(update: Update, context: CallbackContext) -> None:
-    """List todo by todo filter (/todo_filter me_assignee"""
-    list_def = i_list_default(update, context)
+@tgdata_main.handler()
+def hdl_cmd_list(update: Update, ctx: CallbackContext) -> None:
+    """List todo by todo filter (set it eg by calling/todo_filter me_assignee)"""
+    list_def = i_list_default(update, ctx)
     i_send_list(update, list_def)
 
 
@@ -247,11 +205,11 @@ def hdl_cmd_list(update: Update, context: CallbackContext) -> None:
 #    )
 
 
-def hdl_cmd_pick(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_pick(update: Update, ctx: CallbackContext, li_pos: str = None) -> None:
     """Pick a todo by it's position in the list of user's default list filter"""
-    list_default = i_list_default(update, context)
-    li_pos = int(context.args[0])
-    row: dict = list_default[li_pos]
+    list_default = i_list_default(update, ctx)
+    row: dict[str] = list_default[int(li_pos)]
     i_set_default(update, int(row['rowid']), update.effective_chat.id, update.effective_user.id)
 
 
@@ -266,15 +224,16 @@ def i_set_default(update: Update, todo_id: int, chat_id: int = None, user_id: in
     )
 
 
-def hdl_cmd_idpick(update: Update, context: CallbackContext) -> None:
+@tgdata_main.handler()
+def hdl_cmd_idpick(update: Update, ctx: CallbackContext, todo_id: str = None) -> None:
     """Pick a todo by its id """
-    todo_dc = todo_db.by_rowid(int(context.args[0]))
+    todo_dc = todo_db.by_rowid(int(todo_id))
     i_set_default(update, todo_dc.rowid, update.effective_chat.id, update.effective_user.id)
 
 
 def main() -> None:
     """Run the bot."""
-    tgdata_main.start_bot(__file__, commands(), start, hdl_message)
+    tgdata_main.start_bot(__file__)
 
 
 if __name__ == '__main__':

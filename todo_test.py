@@ -1,42 +1,52 @@
+from telegram.ext import Dispatcher
+
 import test_utils
 import todo_main
-from utilities import get_module, print_header_line
+import utilities
 
 
 def main():
-    update, ctx = test_utils.setup(get_module())
+    dispatcher: Dispatcher = test_utils.setup(todo_main.__file__)
 
-    print_header_line('cmd filter %all%')
-    ctx.args = ['all']
-    todo_main.hdl_cmd_filter(update, ctx)
+    ts: test_utils.TestSuite = test_utils.TestSuite(
+        todo_main.__file__, dispatcher, []
+    )
 
-    print_header_line('cmd list')
-    ctx.args = []
-    todo_main.hdl_cmd_list(update, ctx)
+    ts.tc_li.extend(
+        [
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_filter),
+                {'todo_filter': 'all'}
+            ),
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_list),
+                {}
+            ),
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_default),
+                {}
+            ),
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_pick),
+                {'li_pos': '1'}
+            ),
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_title),
+                {'title': utilities.now_for_sql()}
+            ),
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_default),
+                {}
+            ),
+            test_utils.TestCaseHdl(utilities.g3_cmd_by_func(
+                todo_main.hdl_cmd_assign),
+                {'uname': 'uname_2'}
+            )
+        ]
+    )
 
-    print_header_line('cmd default')
-    ctx.args = []
-    todo_main.hdl_cmd_default(update, ctx)
-
-    print_header_line('cmd pick %1%')
-    ctx.args = ['1']
-    todo_main.hdl_cmd_pick(update, ctx)
-
-    print_header_line('cmd default')
-    ctx.args = []
-    todo_main.hdl_cmd_default(update, ctx)
-
-    print_header_line('cmd title new_title')
-    ctx.args = ['new title']
-    todo_main.hdl_cmd_title(update, ctx)
-
-    print_header_line('cmd default')
-    ctx.args = []
-    todo_main.hdl_cmd_default(update, ctx)
-
-    print_header_line('cmd assign')
-    ctx.args = ['uname_2']
-    todo_main.hdl_cmd_assign(update, ctx)
+    for tc in ts.tc_li:
+        ts.tc_exec(tc)
 
 
 if __name__ == '__main__':
